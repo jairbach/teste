@@ -90,7 +90,7 @@
         <button type="button" data-plan="current" aria-pressed="false">Projeto atual (página 59)</button>
       </div>
       <div id="plan-note" class="plan-note" aria-live="polite"></div>
-      <div class="plan-image-wrap"><img id="plan-image" src="./assets/planta-pagina-59.png" alt="Planta geral do CEI Pró-Infância Aquarela, reproduzida da página 59 do projeto preventivo contra incêndio. Clique na imagem para ampliar."></div>
+      <div class="plan-image-wrap"><img id="plan-image" src="./planta-pagina-59.png" alt="Planta geral do CEI Pró-Infância Aquarela, reproduzida da página 59 do projeto preventivo contra incêndio. Clique na imagem para ampliar."></div>
       <p class="plan-footnote">Fonte da planta-base: arquivo “PROJETO CEI AQUARELA 4”, página 59. A versão de 2021 é uma reconstrução editorial baseada na informação fornecida para este infográfico; não é uma planta histórica original. Clique na imagem para ampliar/reduzir e arraste a área ampliada para examinar detalhes.</p>
     </div>
   </section>
@@ -214,7 +214,7 @@
       if (!events.length) {
         const empty = document.createElement('div');
         empty.className = 'empty';
-        empty.textContent = 'Ainda não há pontos cadastrados. Edite data/locais.geojson e adicione os locais apurados para a reportagem.';
+        empty.textContent = 'Ainda não há pontos cadastrados. Edite locais.geojson e adicione os locais apurados para a reportagem.';
         holder.appendChild(empty);
         return;
       }
@@ -309,13 +309,13 @@
       }
 
       try {
-        const response = await fetch('./data/locais.geojson');
+        const response = await fetch('./locais.geojson');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const geojson = await response.json();
         buildTimeline(geojson);
       } catch (error) {
         const holder = document.getElementById('timeline');
-        holder.textContent = 'Não foi possível carregar data/locais.geojson. Verifique se a pasta data está ao lado do index.html e contém locais.geojson. Detalhe: ' + (error?.message || 'erro de carregamento');
+        holder.textContent = 'Não foi possível carregar locais.geojson. Verifique se o arquivo está ao lado do index.html. Detalhe: ' + (error?.message || 'erro de carregamento');
         console.error(error);
       }
     });

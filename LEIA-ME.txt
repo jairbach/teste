@@ -1,0 +1,13 @@
+INSTALAÇÃO NO GITHUB PAGES — ARQUIVOS NA RAIZ
+
+Envie os quatro arquivos deste pacote para o mesmo diretório do repositório:
+- index.html
+- locais.geojson
+- planta-pagina-59.png
+- LEIA-ME.txt (opcional)
+
+Não é necessário criar as pastas data ou assets.
+Não envie somente o ZIP: extraia-o primeiro e envie os arquivos.
+
+Se o repositório já tiver um index.html, faça uma cópia de segurança antes de substituí-lo.
+Depois faça commit das alterações e aguarde o GitHub Pages atualizar.
