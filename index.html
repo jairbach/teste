@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Mapa narrativo interativo de Saudades, Santa Catarina.">
+  <title>Saudades — mapa narrativo</title>
+  <link href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" rel="stylesheet">
+  <style>
+    :root { color-scheme: light; --ink:#202522; --muted:#626b65; --paper:#f6f5f0; --line:#d8dcd5; --accent:#285c49; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:var(--paper); }
+    header { padding:1.1rem clamp(1rem,3vw,2.5rem); border-bottom:1px solid var(--line); background:#fff; }
+    .eyebrow { margin:0 0 .35rem; color:var(--accent); text-transform:uppercase; letter-spacing:.12em; font-size:.72rem; font-weight:750; }
+    h1 { margin:0; font-size:clamp(1.55rem,3vw,2.35rem); line-height:1.12; }
+    .dek { max-width:70ch; margin:.65rem 0 0; color:var(--muted); line-height:1.5; }
+    main { display:grid; grid-template-columns:minmax(0,1fr) minmax(290px,360px); min-height:70vh; }
+    #map { min-height:620px; width:100%; background:#e5e7df; }
+    aside { padding:1.25rem; border-left:1px solid var(--line); background:#fff; }
+    aside h2 { margin:.1rem 0 .6rem; font-size:1.1rem; }
+    .instructions { color:var(--muted); font-size:.92rem; line-height:1.5; margin:0 0 1rem; }
+    #timeline { display:grid; gap:.65rem; }
+    .event { width:100%; text-align:left; padding:.85rem; border:1px solid var(--line); border-radius:.65rem; background:#fff; color:var(--ink); cursor:pointer; font:inherit; }
+    .event:hover,.event:focus-visible { border-color:var(--accent); outline:2px solid #285c4933; outline-offset:2px; }
+    .event time { display:block; margin-bottom:.25rem; color:var(--accent); font-size:.78rem; font-weight:750; }
+    .event strong { display:block; margin-bottom:.25rem; }
+    .event span { display:block; color:var(--muted); font-size:.9rem; line-height:1.4; }
+    .empty { border:1px dashed var(--line); padding:1rem; border-radius:.65rem; color:var(--muted); line-height:1.5; }
+    footer { padding:1rem clamp(1rem,3vw,2.5rem); border-top:1px solid var(--line); color:var(--muted); font-size:.82rem; line-height:1.5; background:#fff; }
+    footer a { color:var(--accent); }
+    .maplibregl-popup-content { max-width:290px; padding:1rem; border-radius:.7rem; font-family:inherit; }
+    .popup-date { color:var(--accent); font-size:.78rem; font-weight:750; margin:0 0 .35rem; }
+    .popup-title { font-size:1.05rem; margin:0 0 .45rem; }
+    .popup-body { margin:0; line-height:1.5; }
+    .maplibregl-ctrl-attrib { font-size:10px; }
+    .plan-trigger { margin-top:.8rem; padding:.65rem .8rem; border:0; border-radius:.45rem; background:var(--accent); color:white; font:inherit; font-weight:700; cursor:pointer; }
+    .plan-modal { position:fixed; inset:0; z-index:1000; display:none; background:#101512d9; padding:clamp(.5rem,2vw,1.5rem); overflow:auto; }
+    .plan-modal.open { display:flex; align-items:center; justify-content:center; }
+    .plan-dialog { width:min(1200px,100%); max-height:96vh; overflow:auto; background:#fff; border-radius:.8rem; padding:clamp(.8rem,2vw,1.4rem); }
+    .plan-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+    .plan-head h2 { margin:.1rem 0 .4rem; }
+    .plan-close { border:1px solid var(--line); background:white; border-radius:.45rem; padding:.5rem .7rem; font:inherit; cursor:pointer; }
+    .plan-tabs { display:flex; flex-wrap:wrap; gap:.5rem; margin:1rem 0; }
+    .plan-tabs button { border:1px solid var(--line); border-radius:99px; padding:.6rem .9rem; background:#fff; color:var(--ink); font:inherit; cursor:pointer; }
+    .plan-tabs button[aria-pressed="true"] { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .plan-note { border-left:4px solid var(--accent); background:#f4f6f2; padding:.8rem 1rem; margin:.8rem 0; line-height:1.5; }
+    .plan-image-wrap { overflow:auto; border:1px solid var(--line); background:#fafafa; text-align:center; }
+    #plan-image { display:block; width:100%; min-width:700px; height:auto; cursor:zoom-in; }
+    #plan-image.zoomed { width:160%; max-width:none; cursor:zoom-out; }
+    .plan-footnote { color:var(--muted); font-size:.85rem; line-height:1.5; }
+    @media (max-width:600px) { #plan-image { min-width:600px; } .plan-head { align-items:center; } }
+    @media (max-width:800px) {
+      main { grid-template-columns:1fr; }
+      #map { min-height:55vh; height:55vh; }
+      aside { border-left:0; border-top:1px solid var(--line); }
+    }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; } }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">Reportagem transmídia · Saudades (SC)</p>
+    <h1>Uma cidade, diferentes lugares e memórias</h1>
+    <p class="dek">Explore os pontos do mapa para conhecer os acontecimentos e seus contextos. O conteúdo editorial deve ser preenchido a partir da apuração da reportagem.</p>
+  </header>
+
+  <main>
+    <div id="map" role="region" aria-label="Mapa interativo 3D de Saudades, Santa Catarina"></div>
+    <aside aria-labelledby="timeline-title">
+      <h2 id="timeline-title">Linha do tempo no território</h2>
+      <p class="instructions">Selecione um acontecimento na lista ou um marcador no mapa para abrir o texto jornalístico correspondente.</p>
+      <div id="timeline" aria-live="polite">
+        <div class="empty">Carregando os pontos da reportagem…</div>
+      </div>
+    </aside>
+  </main>
+
+  <section id="plan-modal" class="plan-modal" role="dialog" aria-modal="true" aria-labelledby="plan-title">
+    <div class="plan-dialog">
+      <div class="plan-head">
+        <div>
+          <p class="eyebrow">Documento arquitetônico e reconstrução histórica</p>
+          <h2 id="plan-title">CEI Pró-Infância Aquarela</h2>
+          <p class="instructions">Selecione a versão para consultar a planta e a diferença histórica informada para este projeto.</p>
+        </div>
+        <button class="plan-close" id="plan-close" type="button" aria-label="Fechar planta">Fechar ✕</button>
+      </div>
+      <div class="plan-tabs" role="group" aria-label="Versão da planta">
+        <button type="button" data-plan="historical" aria-pressed="true">Configuração de 2021</button>
+        <button type="button" data-plan="current" aria-pressed="false">Projeto atual (página 59)</button>
+      </div>
+      <div id="plan-note" class="plan-note" aria-live="polite"></div>
+      <div class="plan-image-wrap"><img id="plan-image" src="./assets/planta-pagina-59.png" alt="Planta geral do CEI Pró-Infância Aquarela, reproduzida da página 59 do projeto preventivo contra incêndio. Clique na imagem para ampliar."></div>
+      <p class="plan-footnote">Fonte da planta-base: arquivo “PROJETO CEI AQUARELA 4”, página 59. A versão de 2021 é uma reconstrução editorial baseada na informação fornecida para este infográfico; não é uma planta histórica original. Clique na imagem para ampliar/reduzir e arraste a área ampliada para examinar detalhes.</p>
+    </div>
+  </section>
+
+  <footer>
+    Mapa-base: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">contribuidores do OpenStreetMap</a> · Estilo cartográfico: <a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer">OpenFreeMap</a>.
+    Verifique também os termos e a atribuição de quaisquer fotografias, modelos 3D, dados de relevo ou outras fontes adicionais utilizadas.
+  </footer>
+
+  <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
+  <script>
+    // Centro aproximado de Saudades. Ajuste se quiser enquadrar outro ponto.
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [-53.003, -26.925],
+      zoom: 13,
+      pitch: 55,
+      bearing: -15,
+      maxPitch: 75,
+      cooperativeGestures: true,
+      attributionControl: true
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+    map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+    map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }));
+
+    let events = [];
+    let activePopup = null;
+
+    const planModal = document.getElementById('plan-modal');
+    const planNote = document.getElementById('plan-note');
+    const planImage = document.getElementById('plan-image');
+    function openPlan() {
+      planModal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      document.getElementById('plan-close').focus();
+      setPlanVersion('historical');
+    }
+    function closePlan() {
+      planModal.classList.remove('open');
+      document.body.style.overflow = '';
+      planImage.classList.remove('zoomed');
+    }
+    function setPlanVersion(version) {
+      document.querySelectorAll('[data-plan]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.plan === version)));
+      if (version === 'historical') {
+        planNote.textContent = 'Configuração de 2021: a planta atual é usada como base. Na área onde hoje está o parquinho, ficavam a Creche II e o Sanitário da Creche II, posteriormente demolidos para dar lugar ao parquinho. Os demais espaços seguem a planta da página 59.';
+      } else {
+        planNote.textContent = 'Projeto atual: reprodução da planta geral da página 59 do arquivo “PROJETO CEI AQUARELA 4”. Nesta configuração, o parquinho aparece no espaço que antes era ocupado pela Creche II e pelo Sanitário da Creche II.';
+      }
+    }
+    document.getElementById('plan-close').addEventListener('click', closePlan);
+    planModal.addEventListener('click', event => { if (event.target === planModal) closePlan(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && planModal.classList.contains('open')) closePlan(); });
+    document.querySelectorAll('[data-plan]').forEach(button => button.addEventListener('click', () => setPlanVersion(button.dataset.plan)));
+    planImage.addEventListener('click', () => planImage.classList.toggle('zoomed'));
+
+    // Usa nós DOM e textContent para que textos editoriais não sejam interpretados como HTML.
+    function makePopupContent(item) {
+      const root = document.createElement('article');
+      if (item.date) {
+        const date = document.createElement('p');
+        date.className = 'popup-date';
+        date.textContent = item.date;
+        root.appendChild(date);
+      }
+      const title = document.createElement('h3');
+      title.className = 'popup-title';
+      title.textContent = item.title || 'Local da reportagem';
+      root.appendChild(title);
+
+      const body = document.createElement('p');
+      body.className = 'popup-body';
+      body.textContent = item.description || '';
+      root.appendChild(body);
+
+      if (item.action === 'open-plan') {
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'plan-trigger';
+        action.textContent = 'Explorar planta da creche';
+        action.addEventListener('click', openPlan);
+        root.appendChild(action);
+      }
+      if (item.source) {
+        const source = document.createElement('p');
+        source.style.margin = '.7rem 0 0';
+        const link = document.createElement('a');
+        link.href = item.source;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Ler fonte ou conteúdo relacionado';
+        source.appendChild(link);
+        root.appendChild(source);
+      }
+      return root;
+    }
+
+    function openEvent(item) {
+      if (!item || !item.geometry || !item.geometry.coordinates) return;
+      const [lng, lat] = item.geometry.coordinates;
+      map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), pitch: 55, essential: true });
+      if (activePopup) activePopup.remove();
+      activePopup = new maplibregl.Popup({ offset: 18, maxWidth: '320px' })
+        .setLngLat([lng, lat])
+        .setDOMContent(makePopupContent(item.properties || {}))
+        .addTo(map);
+    }
+
+    function buildTimeline(collection) {
+      const holder = document.getElementById('timeline');
+      holder.replaceChildren();
+      events = (collection.features || []).filter(f =>
+        f && f.geometry && f.geometry.type === 'Point' &&
+        Array.isArray(f.geometry.coordinates) && f.geometry.coordinates.length >= 2 &&
+        f.properties
+      );
+
+      if (!events.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'Ainda não há pontos cadastrados. Edite data/locais.geojson e adicione os locais apurados para a reportagem.';
+        holder.appendChild(empty);
+        return;
+      }
+
+      const sorted = [...events].sort((a,b) =>
+        String(a.properties.date || '').localeCompare(String(b.properties.date || ''))
+      );
+
+      sorted.forEach((feature, index) => {
+        const p = feature.properties;
+        const button = document.createElement('button');
+        button.className = 'event';
+        button.type = 'button';
+        const date = document.createElement('time');
+        date.textContent = p.date || 'Data não informada';
+        const title = document.createElement('strong');
+        title.textContent = p.title || `Local ${index + 1}`;
+        const summary = document.createElement('span');
+        summary.textContent = p.summary || p.description || 'Abrir informações deste local.';
+        button.append(date, title, summary);
+        button.addEventListener('click', () => openEvent(feature));
+        holder.appendChild(button);
+      });
+
+      if (map.getSource('story-points')) {
+        map.getSource('story-points').setData(collection);
+      } else {
+        map.addSource('story-points', { type: 'geojson', data: collection });
+        map.addLayer({
+          id: 'story-points-halo',
+          type: 'circle',
+          source: 'story-points',
+          paint: {
+            'circle-radius': 11,
+            'circle-color': '#ffffff',
+            'circle-opacity': 0.95
+          }
+        });
+        map.addLayer({
+          id: 'story-points',
+          type: 'circle',
+          source: 'story-points',
+          paint: {
+            'circle-radius': 6,
+            'circle-color': '#285c49',
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 2
+          }
+        });
+        map.on('click', 'story-points', (e) => {
+          const feature = e.features && e.features[0];
+          if (feature) openEvent(feature);
+        });
+        map.on('mouseenter', 'story-points', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'story-points', () => map.getCanvas().style.cursor = '');
+      }
+    }
+
+    map.on('load', async () => {
+      // Extrusão de edifícios quando a fonte vetorial do estilo contém a camada "building".
+      // Se o estilo mudar e essa camada não existir, o mapa e os pontos continuam funcionais.
+      try {
+        const style = map.getStyle();
+        const sourceId = Object.keys(style.sources || {}).find(id => {
+          const source = style.sources[id];
+          return source && source.type === 'vector' && source.url;
+        });
+        if (sourceId) {
+          const labelLayer = (style.layers || []).find(layer =>
+            layer.type === 'symbol' && layer.layout && layer.layout['text-field']
+          );
+          map.addLayer({
+            id: 'story-3d-buildings',
+            source: sourceId,
+            'source-layer': 'building',
+            type: 'fill-extrusion',
+            minzoom: 14,
+            filter: ['!=', ['coalesce', ['get', 'hide_3d'], false], true],
+            paint: {
+              'fill-extrusion-color': '#b7bdb5',
+              'fill-extrusion-height': [
+                'interpolate', ['linear'], ['zoom'],
+                14, 0, 16, ['coalesce', ['get', 'render_height'], ['get', 'height'], 8]
+              ],
+              'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0],
+              'fill-extrusion-opacity': 0.82
+            }
+          }, labelLayer ? labelLayer.id : undefined);
+        }
+      } catch (error) {
+        console.warn('A camada de edifícios 3D não foi carregada; mapa-base mantido.', error);
+      }
+
+      try {
+        const response = await fetch('./data/locais.geojson');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const geojson = await response.json();
+        buildTimeline(geojson);
+      } catch (error) {
+        const holder = document.getElementById('timeline');
+        holder.textContent = 'Não foi possível carregar data/locais.geojson. Confirme se o arquivo foi enviado ao GitHub Pages.';
+        console.error(error);
+      }
+    });
+  </script>
+</body>
+</html>
