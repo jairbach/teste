@@ -44,7 +44,14 @@
     .plan-tabs button { border:1px solid var(--line); border-radius:99px; padding:.6rem .9rem; background:#fff; color:var(--ink); font:inherit; cursor:pointer; }
     .plan-tabs button[aria-pressed="true"] { background:var(--accent); color:#fff; border-color:var(--accent); }
     .plan-note { border-left:4px solid var(--accent); background:#f4f6f2; padding:.8rem 1rem; margin:.8rem 0; line-height:1.5; }
-    .plan-image-wrap { overflow:auto; border:1px solid var(--line); background:#fafafa; text-align:center; }
+    .plan-image-wrap { overflow:auto; border:1px solid var(--line); background:#fafafa; text-align:center; display:none; }
+    .plan-image-wrap.show { display:block; }
+    #model3d { width:100%; height:min(62vh,620px); min-height:360px; display:block; background:linear-gradient(#e8efec,#cfd8d1); border:1px solid var(--line); border-radius:.6rem; touch-action:pan-y; }
+    .model-tools { display:flex; flex-wrap:wrap; gap:.5rem; margin:.8rem 0; }
+    .model-tools button { border:1px solid var(--line); border-radius:.5rem; padding:.6rem .8rem; background:#fff; font:inherit; cursor:pointer; }
+    .model-tools button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .model-legend { display:flex; flex-wrap:wrap; gap:.8rem; font-size:.82rem; color:var(--muted); margin:.7rem 0; }
+    .legend-dot { display:inline-block; width:.7rem; height:.7rem; border-radius:2px; margin-right:.3rem; }
     #plan-image { display:block; width:100%; min-width:700px; height:auto; cursor:zoom-in; }
     #plan-image.zoomed { width:160%; max-width:none; cursor:zoom-out; }
     .plan-footnote { color:var(--muted); font-size:.85rem; line-height:1.5; }
@@ -81,17 +88,20 @@
         <div>
           <p class="eyebrow">Documento arquitetônico e reconstrução histórica</p>
           <h2 id="plan-title">CEI Pró-Infância Aquarela</h2>
-          <p class="instructions">Selecione a versão para consultar a planta e a diferença histórica informada para este projeto.</p>
+          <p class="instructions">Explore uma maquete 3D conceitual da creche. Arraste para girar e use a roda do mouse para aproximar ou afastar. A planta técnica continua disponível abaixo.</p>
         </div>
-        <button class="plan-close" id="plan-close" type="button" aria-label="Fechar planta">Fechar ✕</button>
+        <button class="plan-close" id="plan-close" type="button" aria-label="Fechar visualização 3D">Fechar ✕</button>
       </div>
-      <div class="plan-tabs" role="group" aria-label="Versão da planta">
-        <button type="button" data-plan="historical" aria-pressed="true">Configuração de 2021</button>
-        <button type="button" data-plan="current" aria-pressed="false">Projeto atual (página 59)</button>
+      <div class="plan-tabs" role="group" aria-label="Período representado">
+        <button type="button" data-plan="historical" aria-pressed="true">Reconstrução de 2021</button>
+        <button type="button" data-plan="current" aria-pressed="false">Configuração atual</button>
       </div>
       <div id="plan-note" class="plan-note" aria-live="polite"></div>
-      <div class="plan-image-wrap"><img id="plan-image" src="./planta-pagina-59.png" alt="Planta geral do CEI Pró-Infância Aquarela, reproduzida da página 59 do projeto preventivo contra incêndio. Clique na imagem para ampliar."></div>
-      <p class="plan-footnote">Fonte da planta-base: arquivo “PROJETO CEI AQUARELA 4”, página 59. A versão de 2021 é uma reconstrução editorial baseada na informação fornecida para este infográfico; não é uma planta histórica original. Clique na imagem para ampliar/reduzir e arraste a área ampliada para examinar detalhes.</p>
+      <canvas id="model3d" aria-label="Maquete 3D conceitual da Creche Aquarela. Arraste para girar a câmera."></canvas>
+      <div class="model-tools"><button id="reset-view" type="button">Recentrar maquete</button><button id="toggle-plan" type="button" class="primary">Consultar planta técnica</button></div>
+      <div class="model-legend"><span><i class="legend-dot" style="background:#d7c9a9"></i>Edificações esquemáticas</span><span><i class="legend-dot" style="background:#4f8a63"></i>Área externa / parquinho</span><span><i class="legend-dot" style="background:#d78a52"></i>Ambientes históricos destacados</span></div>
+      <div class="plan-image-wrap" id="plan-image-wrap"><img id="plan-image" src="./planta-pagina-59.png" alt="Planta geral do CEI Pró-Infância Aquarela, reproduzida da página 59 do projeto preventivo contra incêndio. Clique na imagem para ampliar."></div>
+      <p class="plan-footnote">A maquete é uma representação 3D esquemática para orientar a leitura espacial, não um modelo arquitetônico em escala nem uma reconstituição exata dos cômodos. A planta técnica abaixo é a referência documental: “PROJETO CEI AQUARELA 4”, página 59. A configuração de 2021 combina essa base com a informação fornecida de que a Creche II e o Sanitário da Creche II foram demolidos para dar lugar ao parquinho.</p>
     </div>
   </section>
 
@@ -101,6 +111,7 @@
   </footer>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
   <script>
     // Centro aproximado de Saudades. Ajuste se quiser enquadrar outro ponto.
     const map = new maplibregl.Map({
@@ -130,25 +141,98 @@
       document.body.style.overflow = 'hidden';
       document.getElementById('plan-close').focus();
       setPlanVersion('historical');
+      init3D();
     }
     function closePlan() {
       planModal.classList.remove('open');
       document.body.style.overflow = '';
       planImage.classList.remove('zoomed');
     }
+    let modelVersion = 'historical';
     function setPlanVersion(version) {
+      modelVersion = version;
       document.querySelectorAll('[data-plan]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.plan === version)));
       if (version === 'historical') {
-        planNote.textContent = 'Configuração de 2021: a planta atual é usada como base. Na área onde hoje está o parquinho, ficavam a Creche II e o Sanitário da Creche II, posteriormente demolidos para dar lugar ao parquinho. Os demais espaços seguem a planta da página 59.';
+        planNote.textContent = '2021 — Reconstrução editorial: na área que hoje corresponde ao parquinho, são destacados a antiga Creche II e o Sanitário da Creche II. Os demais volumes são esquemáticos e seguem a organização geral da planta atual.';
       } else {
-        planNote.textContent = 'Projeto atual: reprodução da planta geral da página 59 do arquivo “PROJETO CEI AQUARELA 4”. Nesta configuração, o parquinho aparece no espaço que antes era ocupado pela Creche II e pelo Sanitário da Creche II.';
+        planNote.textContent = 'Configuração atual — o parquinho ocupa a área onde ficavam a Creche II e o Sanitário da Creche II. A organização dos demais volumes é apresentada de forma esquemática, com a planta técnica disponível para consulta.';
       }
+      if (scene3d) rebuildModel();
     }
     document.getElementById('plan-close').addEventListener('click', closePlan);
     planModal.addEventListener('click', event => { if (event.target === planModal) closePlan(); });
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && planModal.classList.contains('open')) closePlan(); });
     document.querySelectorAll('[data-plan]').forEach(button => button.addEventListener('click', () => setPlanVersion(button.dataset.plan)));
     planImage.addEventListener('click', () => planImage.classList.toggle('zoomed'));
+    document.getElementById('toggle-plan').addEventListener('click', () => {
+      const wrap = document.getElementById('plan-image-wrap');
+      wrap.classList.toggle('show');
+      document.getElementById('toggle-plan').textContent = wrap.classList.contains('show') ? 'Ocultar planta técnica' : 'Consultar planta técnica';
+    });
+
+    // Maquete 3D conceitual. Os volumes são esquemáticos e não pretendem indicar medidas exatas.
+    let renderer3d = null, scene3d = null, camera3d = null, modelGroup = null, animFrame = null;
+    let drag3d = false, lastX = 0, lastY = 0, rotY = -0.55, rotX = -0.35;
+    function init3D() {
+      const canvas = document.getElementById('model3d');
+      if (!window.THREE) {
+        document.getElementById('plan-note').textContent += ' O navegador não carregou a biblioteca 3D; consulte a planta técnica abaixo.';
+        return;
+      }
+      if (!renderer3d) {
+        renderer3d = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+        renderer3d.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer3d.shadowMap.enabled = true;
+        scene3d = new THREE.Scene();
+        scene3d.background = new THREE.Color('#e5ece7');
+        camera3d = new THREE.PerspectiveCamera(42, 1, 0.1, 1000);
+        camera3d.position.set(17, 15, 20);
+        scene3d.add(new THREE.HemisphereLight(0xffffff, 0x718074, 2.1));
+        const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-10, 20, 12); sun.castShadow = true; scene3d.add(sun);
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(36, 27), new THREE.MeshStandardMaterial({color:'#dfe5dc', roughness:1}));
+        ground.rotation.x = -Math.PI/2; ground.position.y = -0.12; ground.receiveShadow = true; scene3d.add(ground);
+        const grid = new THREE.GridHelper(34, 34, 0xb7c2b8, 0xcbd3ca); grid.position.y = -0.1; scene3d.add(grid);
+        modelGroup = new THREE.Group(); scene3d.add(modelGroup);
+        canvas.addEventListener('pointerdown', e => {drag3d=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);});
+        canvas.addEventListener('pointermove', e => {if(!drag3d)return;rotY+=(e.clientX-lastX)*0.008;rotX+=(e.clientY-lastY)*0.006;rotX=Math.max(-1.05,Math.min(0.25,rotX));lastX=e.clientX;lastY=e.clientY;modelGroup.rotation.set(rotX,rotY,0);});
+        canvas.addEventListener('pointerup', () => drag3d=false); canvas.addEventListener('pointercancel',()=>drag3d=false);
+        canvas.addEventListener('wheel', e => {e.preventDefault();camera3d.position.multiplyScalar(e.deltaY>0?1.07:0.93);camera3d.position.clampLength(12,55);},{passive:false});
+        document.getElementById('reset-view').addEventListener('click',()=>{rotY=-0.55;rotX=-0.35;camera3d.position.set(17,15,20);modelGroup.rotation.set(rotX,rotY,0);});
+        window.addEventListener('resize', resize3D);
+        rebuildModel(); resize3D();
+        const draw=()=>{animFrame=requestAnimationFrame(draw);if(renderer3d&&scene3d){renderer3d.render(scene3d,camera3d);}}; draw();
+      } else { resize3D(); }
+    }
+    function resize3D(){if(!renderer3d)return;const c=document.getElementById('model3d');const w=Math.max(320,c.clientWidth),h=Math.max(340,c.clientHeight);renderer3d.setSize(w,h,false);camera3d.aspect=w/h;camera3d.updateProjectionMatrix();}
+    function rebuildModel(){
+      if(!modelGroup||!window.THREE)return;
+      while(modelGroup.children.length){const o=modelGroup.children.pop();o.geometry?.dispose();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose();}}
+      const mat=(color,roughness=0.85)=>new THREE.MeshStandardMaterial({color,roughness});
+      const wall=mat('#d7c9a9'), roof=mat('#8b958c'), windowMat=new THREE.MeshStandardMaterial({color:'#91b8c3',metalness:0.1,roughness:0.35}), green=mat('#4f8a63'), orange=mat('#d78a52'), white=mat('#f6f4e9');
+      function box(name,x,y,z,w,h,d,material){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);mesh.position.set(x,y+h/2,z);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.label=name;modelGroup.add(mesh);return mesh;}
+      function label(text,x,y,z,color='#26352d'){const canvas=document.createElement('canvas');canvas.width=512;canvas.height=96;const ctx=canvas.getContext('2d');ctx.fillStyle='rgba(255,255,255,.92)';ctx.fillRect(0,0,512,96);ctx.fillStyle=color;ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(text,256,60);const tex=new THREE.CanvasTexture(canvas);const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true}));sprite.position.set(x,y,z);sprite.scale.set(5,0.95,1);modelGroup.add(sprite);}
+      // Volumes genéricos para demonstrar implantação e navegação, não plantas internas medidas.
+      box('Bloco 01',-5,0,-3,8,2.4,5,wall);box('Cobertura bloco 01',-5,2.4,-3,8.15,.18,5.15,roof);
+      box('Bloco 02',3.2,0,-3,6.4,2.4,5,wall);box('Cobertura bloco 02',3.2,2.4,-3,6.55,.18,5.15,roof);
+      box('Bloco 03',-2,0,4.2,10,2.7,5.4,wall);box('Cobertura bloco 03',-2,2.7,4.2,10.15,.18,5.55,roof);
+      // Janelas genéricas nas fachadas voltadas ao observador.
+      [-7,-5.5,-4,-2.5].forEach(x=>box('Janela',x,.75,-5.53,.85,.7,.05,windowMat));[1.5,3,4.5].forEach(x=>box('Janela',x,.75,-5.53,.85,.7,.05,windowMat));[-5,-2.5,0].forEach(x=>box('Janela',x,.8,1.48,1,.75,.05,windowMat));
+      label('BLOCO 01',-5,3.6,-3);label('BLOCO 02',3.2,3.6,-3);label('BLOCO 03',-2,3.8,4.2);
+      // Área onde hoje fica o parquinho / onde ficavam os ambientes históricos.
+      if(modelVersion==='historical'){
+        box('Antiga Creche II',7.2,0,3.2,4.4,2.2,2.6,orange);box('Sanitário Creche II',7.2,0,5.9,2.3,2.2,1.7,orange);
+        box('Cobertura Creche II',7.2,2.2,3.2,4.5,.15,2.7,mat('#a65d32'));box('Cobertura sanitário',7.2,2.2,5.9,2.4,.15,1.8,mat('#a65d32'));
+        label('CRECHE II',7.2,3.2,3.2,'#7c3f1b');label('SAN. CRECHE II',7.2,3.2,5.9,'#7c3f1b');
+      }else{
+        box('Parquinho atual',7.2,0,4.3,6.5,.18,5.4,green);
+        // brinquedos representados apenas como símbolos genéricos
+        box('Estrutura lúdica',6.2,.2,3.7,.5,1.7,.5,orange);box('Plataforma',6.8,.55,3.7,1.8,.18,1.3,mat('#d8b45a'));
+        box('Estrutura lúdica',8.1,.2,5,.45,1.2,.45,orange);label('PARQUINHO',7.2,2.0,4.3,'#255d37');
+      }
+      // Caminhos e área aberta entre volumes
+      box('Pátio',0,-.02,.1,4.2,.06,3.4,mat('#c8cec5'));
+      modelGroup.rotation.set(rotX,rotY,0);
+    }
 
     // Usa nós DOM e textContent para que textos editoriais não sejam interpretados como HTML.
     function makePopupContent(item) {
