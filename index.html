@@ -315,7 +315,7 @@
         buildTimeline(geojson);
       } catch (error) {
         const holder = document.getElementById('timeline');
-        holder.textContent = 'Não foi possível carregar data/locais.geojson. Confirme se o arquivo foi enviado ao GitHub Pages.';
+        holder.textContent = 'Não foi possível carregar data/locais.geojson. Verifique se a pasta data está ao lado do index.html e contém locais.geojson. Detalhe: ' + (error?.message || 'erro de carregamento');
         console.error(error);
       }
     });
