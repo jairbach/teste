@@ -1,0 +1,19 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-52.998230195106, -26.926249929615]
+      },
+      "properties": {
+        "date": "04/05/2021",
+        "title": "CEI Pró-Infância Aquarela",
+        "summary": "Abrir a planta e comparar a configuração de 2021 com o projeto atual.",
+        "description": "Este ponto abre a planta geral do CEI Pró-Infância Aquarela. A página 59 do projeto atual serve como base para a visualização; a diferença histórica indicada para 2021 é a existência da Creche II e do Sanitário da Creche II na área onde hoje fica o parquinho.",
+        "action": "open-plan"
+      }
+    }
+  ]
+}
